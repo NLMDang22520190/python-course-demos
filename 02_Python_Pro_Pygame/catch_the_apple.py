@@ -15,94 +15,125 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
 
 # Set up the display
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Catch the Apple")
+pygame.display.set_caption("Catch the Apple - Pro Level")
 clock = pygame.time.Clock()
 
-# Basket (Player) properties
+# Fonts
+font = pygame.font.SysFont(None, 36)
+large_font = pygame.font.SysFont(None, 72)
+
+# Game Variables
+def reset_game():
+    global basket_x, apple_y, apple_x, apple_speed, score, lives, game_over
+    basket_x = WIDTH // 2 - 50
+    apple_y = -15
+    apple_x = random.randint(15, WIDTH - 15)
+    apple_speed = 5
+    score = 0
+    lives = 3
+    game_over = False
+
+# Basket Properties
 basket_width = 100
 basket_height = 20
-basket_x = WIDTH // 2 - basket_width // 2
 basket_y = HEIGHT - 40
 basket_speed = 7
 
-# Apple properties
 apple_radius = 15
-apple_x = random.randint(apple_radius, WIDTH - apple_radius)
-apple_y = -apple_radius
-apple_speed = 5
 
-score = 0
-font = pygame.font.SysFont(None, 36)
+# Initialize the first game state
+reset_game()
 
 # -------------------------------------------------------------------
 # 1. The Game Loop
-# A game loop runs continuously until the game is over or the window is closed.
-# It processes inputs, updates game logic, and draws everything to the screen.
 # -------------------------------------------------------------------
 running = True
 while running:
     # -------------------------------------------------------------------
     # 2. Event Handling
-    # This loop checks for user inputs like key presses or clicking the 'X' button.
     # -------------------------------------------------------------------
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-    # Check for held down keys for moving the basket
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT] and basket_x > 0:
-        basket_x -= basket_speed
-    if keys[pygame.K_RIGHT] and basket_x < WIDTH - basket_width:
-        basket_x += basket_speed
-
-    # Update Apple position (falling down)
-    apple_y += apple_speed
-
-    # -------------------------------------------------------------------
-    # 3. Collision Detection & Scoring
-    # Check if the apple has touched the basket or hit the ground.
-    # -------------------------------------------------------------------
-    
-    # Check if apple hit the ground (missed)
-    if apple_y > HEIGHT:
-        # Reset apple at the top
-        apple_y = -apple_radius
-        apple_x = random.randint(apple_radius, WIDTH - apple_radius)
-        score = 0  # Reset score on miss
-
-    # Collision detection: Check if the apple coordinates overlap with the basket rectangle
-    # We use a simple bounding box logic check
-    if (basket_y < apple_y + apple_radius < basket_y + basket_height and
-            basket_x < apple_x < basket_x + basket_width):
-        # Caught the apple!
-        score += 1
-        apple_speed += 0.2  # Increase difficulty slightly
         
-        # Reset apple at the top
-        apple_y = -apple_radius
-        apple_x = random.randint(apple_radius, WIDTH - apple_radius)
+        # Handle restarting the game with the 'R' key if game is over
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r and game_over:
+                reset_game()
 
-    # --- Drawing ---
+    # Check for held down keys for moving the basket (only if playing!)
+    keys = pygame.key.get_pressed()
+    
+    # -------------------------------------------------------------------
+    # 3. Game Logic: States, Collisions & Scoring
+    # -------------------------------------------------------------------
+    if not game_over:
+        if keys[pygame.K_LEFT] and basket_x > 0:
+            basket_x -= basket_speed
+            
+        if keys[pygame.K_RIGHT] and basket_x < WIDTH - basket_width:
+            basket_x += basket_speed
+
+        # Update Apple position (falling down)
+        apple_y += apple_speed
+        
+        # Check if apple hit the ground (missed)
+        if apple_y > HEIGHT:
+            lives -= 1
+            apple_y = -apple_radius
+            apple_x = random.randint(apple_radius, WIDTH - apple_radius)
+            
+            # Change state to Game Over if lives hit 0
+            if lives <= 0:
+                game_over = True
+
+        # Collision detection: Check for overlap
+        if (basket_y < apple_y + apple_radius < basket_y + basket_height and
+                basket_x < apple_x < basket_x + basket_width):
+            score += 1
+            apple_speed += 0.3  # Increase difficulty slightly
+            
+            # Reset apple at the top
+            apple_y = -apple_radius
+            apple_x = random.randint(apple_radius, WIDTH - apple_radius)
+
+    # -------------------------------------------------------------------
+    # 4. Drawing Phase
+    # -------------------------------------------------------------------
     screen.fill(BLACK)  # Clear the screen every frame
 
-    # Draw the target (Apple) as a circle
-    pygame.draw.circle(screen, RED, (int(apple_x), int(apple_y)), apple_radius)
+    if not game_over:
+        # Draw the target (Apple) as a circle
+        pygame.draw.circle(screen, RED, (int(apple_x), int(apple_y)), apple_radius)
 
-    # Draw the player (Basket) as a rectangle
-    pygame.draw.rect(screen, BLUE, (basket_x, basket_y, basket_width, basket_height))
+        # Draw the player (Basket) as a rectangle
+        pygame.draw.rect(screen, BLUE, (basket_x, basket_y, basket_width, basket_height))
 
-    # Draw Score Text
-    score_text = font.render(f"Score: {score}", True, WHITE)
-    screen.blit(score_text, (10, 10))
+        # Draw Heads Up Display (HUD) - Score and Lives
+        score_text = font.render(f"Score: {score}", True, WHITE)
+        lives_text = font.render(f"Lives: {lives}", True, YELLOW)
+        
+        screen.blit(score_text, (10, 10))
+        screen.blit(lives_text, (WIDTH - 120, 10))
+        
+    else:
+        # Draw Game Over Screen
+        game_over_text = large_font.render("GAME OVER", True, RED)
+        restart_text = font.render("Press 'R' to Restart", True, WHITE)
+        final_score = font.render(f"Final Score: {score}", True, YELLOW)
+        
+        screen.blit(game_over_text, (WIDTH // 2 - 150, HEIGHT // 2 - 50))
+        screen.blit(final_score, (WIDTH // 2 - 80, HEIGHT // 2 + 20))
+        screen.blit(restart_text, (WIDTH // 2 - 110, HEIGHT // 2 + 70))
 
     # Update the display
     pygame.display.flip()
 
-    # Maintain frame rate
+    # Maintain frame rate (60 FPS)
     clock.tick(FPS)
 
 # Clean up
